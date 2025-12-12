@@ -1,0 +1,9 @@
+# Brother P-Touch label printers - allow access for users in plugdev group
+# PT-E550W
+SUBSYSTEM=="usb", ATTR{idVendor}=="04f9", ATTR{idProduct}=="2060", MODE="0666", GROUP="plugdev"
+# PT-P750W
+SUBSYSTEM=="usb", ATTR{idVendor}=="04f9", ATTR{idProduct}=="2062", MODE="0666", GROUP="plugdev"
+# PT-P710BT
+SUBSYSTEM=="usb", ATTR{idVendor}=="04f9", ATTR{idProduct}=="20af", MODE="0666", GROUP="plugdev"
+# PT-P700
+SUBSYSTEM=="usb", ATTR{idVendor}=="04f9", ATTR{idProduct}=="2061", MODE="0666", GROUP="plugdev"

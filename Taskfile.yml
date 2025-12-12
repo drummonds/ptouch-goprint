@@ -1,0 +1,58 @@
+# https://taskfile.dev
+
+version: '3'
+
+vars:
+  GREETING: Hello, World!
+
+tasks:
+  default:
+    cmds:
+      - echo "{{.GREETING}}"
+    silent: true
+
+  release:*:*:
+    desc: Final release process an install eg task release:v0.22.1:"fix jobs"
+    vars:
+      TAG: '{{index .MATCH 0}}'
+      BUILD: '{{index .MATCH 1}}'
+    cmds:
+      # - task: clean:all
+      # - task: build
+      - task: check
+      - git add .
+      - git commit -am "{{.BUILD}}"
+      - git tag "{{.TAG}}"
+      - git push origin "{{.TAG}}"
+      - git push
+      - goreleaser release --clean
+      - go install github.com/drummonds/ptouch-goprint
+
+  check:
+    desc: Run all checks (fmt, vet, test)
+    cmds:
+      - task: fmt
+      - task: vet
+      - task: test
+
+  # Code quality tasks
+  fmt:
+    desc: Format Go code
+    cmds:
+      - go fmt ./...
+
+  lint:
+    desc: Run Go linter (requires golangci-lint)
+    cmds:
+      - golangci-lint run ./...
+
+  vet:
+    desc: Run go vet
+    cmds:
+      - go vet ./...
+
+  # Test tasks
+  test:
+    desc: Run all Go tests
+    cmds:
+      - go test -v ./...
