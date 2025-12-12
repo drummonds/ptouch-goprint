@@ -33,3 +33,5 @@ project (my free time currently is about one or two hours PER MONTH).
 Therefore, I can not look at suggestions about improvements.
 
 # Requires task from Taskfile.dev to build
+
+Also need `sudo apt install libusb-1.0-0-dev` to release.
