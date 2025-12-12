@@ -26,7 +26,7 @@ tasks:
       - git push origin "{{.TAG}}"
       - git push
       - goreleaser release --clean
-      - go install github.com/drummonds/ptouch-goprint
+      - go install github.com/drummonds/ptouch-goprint/cmd/ptouch-goprint@latest
 
   check:
     desc: Run all checks (fmt, vet, test)
