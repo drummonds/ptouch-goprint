@@ -1,1 +1,0 @@
-36e896c07804260148cf5a7632c993f2c65cd14d4517caee7cce2b1ed4bb809b  ptouch-goprint_linux_amd64.tar.gz
