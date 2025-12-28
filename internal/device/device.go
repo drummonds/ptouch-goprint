@@ -253,6 +253,49 @@ func (d *Device) GetStatus(timeout int) error {
 	return fmt.Errorf("timeout (%d sec) while waiting for status response", timeout)
 }
 
+// WaitForPrintComplete waits for the printer to finish printing
+// timeout is in seconds (0 = wait indefinitely)
+func (d *Device) WaitForPrintComplete(timeout int) error {
+	buf := make([]byte, 32)
+	maxTries := timeout * 10
+	if timeout == 0 {
+		maxTries = 100000 // essentially infinite
+	}
+
+	for tries := 0; tries < maxTries; tries++ {
+		time.Sleep(100 * time.Millisecond)
+
+		n, err := d.Receive(buf)
+		if err != nil {
+			// Timeout is expected while waiting
+			continue
+		}
+
+		if n == 32 && buf[0] == 0x80 && buf[1] == 0x20 {
+			statusType := buf[18]
+			// StatusType values:
+			// 0x00 = Reply to status request
+			// 0x01 = Printing completed
+			// 0x02 = Error occurred
+			// 0x06 = Phase change (notification)
+			if statusType == 0x01 {
+				fmt.Println("Print completed")
+				return nil
+			}
+			if statusType == 0x02 {
+				errorCode := binary.LittleEndian.Uint16(buf[8:10])
+				return fmt.Errorf("printer error: 0x%04x", errorCode)
+			}
+			// For other status types, keep waiting
+			if d.Debug {
+				fmt.Printf("Status: type=0x%02x, phase=0x%02x\n", statusType, buf[19])
+			}
+		}
+	}
+
+	return fmt.Errorf("timeout (%d sec) waiting for print to complete", timeout)
+}
+
 // DumpRawStatus prints raw status bytes for debugging
 func (d *Device) DumpRawStatus(raw []byte) {
 	fmt.Println("debug: dumping raw status bytes")

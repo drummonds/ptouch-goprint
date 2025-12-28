@@ -20,6 +20,11 @@ for further models, too).
 Further info can be found at:
 https://dominic.familie-radermacher.ch/projekte/ptouch-print/
 
+### Print 5 copies with half-cut between them
+ptouch-goprint --text "Hello" --copies 5 --halfcut
+
+### With precut to clean up the first label edge
+ptouch-goprint --text "Hello" --copies 5 --halfcut --precut
 
 ## PT-550W summary
 
@@ -78,6 +83,7 @@ func main() {
 	}
 
 	// Print each image
+	autoCut := true // Set to true to cut after each label, false for chain mode
 	for i, imgPath := range images {
 		img, err := loadPNG(imgPath)
 		if err != nil {
@@ -85,9 +91,11 @@ func main() {
 			os.Exit(1)
 		}
 
-		// Use chain mode for all but the last image (avoids cutting between labels)
+		// chain=false means auto-cut after this label
+		// chain=true means don't cut (chain to next label)
 		isLast := i == len(images)-1
-		if err := printImage(dev, img, !isLast); err != nil {
+		chain := !autoCut && !isLast // Only chain if not auto-cutting and not last
+		if err := printImage(dev, img, chain); err != nil {
 			fmt.Fprintf(os.Stderr, "Error printing %s: %v\n", imgPath, err)
 			os.Exit(1)
 		}
@@ -149,13 +157,21 @@ func printImage(dev *device.Device, img image.Image, chain bool) error {
 For now, the easiest way to print from another program is to shell out to the CLI:
 
 ```go
-// Print a single image
+// Print a single image (auto-cuts after printing)
 cmd := exec.Command("ptouch-goprint", "-image", "label.png")
 if err := cmd.Run(); err != nil {
     log.Fatal(err)
 }
 
-// Print multiple images with chain mode (no cut between labels)
+// Print multiple images with auto-cut (cuts after each label)
+for _, img := range []string{"label1.png", "label2.png", "label3.png"} {
+    cmd := exec.Command("ptouch-goprint", "-image", img)
+    if err := cmd.Run(); err != nil {
+        log.Fatal(err)
+    }
+}
+
+// Print multiple images with chain mode (no cut between labels, only at end)
 cmd := exec.Command("ptouch-goprint",
     "-image", "label1.png",
     "-image", "label2.png",

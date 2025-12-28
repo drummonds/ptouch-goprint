@@ -26,6 +26,7 @@ var (
 	timeout        = flag.Int("timeout", 1, "Timeout in seconds for waiting on printer (0=infinite)")
 	chain          = flag.Bool("chain", false, "Skip final feed and auto-cut")
 	precut         = flag.Bool("precut", false, "Add cut before label")
+	halfcut        = flag.Bool("halfcut", false, "Use half-cut (perforated) between multiple copies")
 	showInfo       = flag.Bool("info", false, "Show tape/printer info")
 	listSupported  = flag.Bool("list-supported", false, "List supported printers")
 	listUSB        = flag.Bool("list-usb", false, "List all USB devices (for debugging)")
@@ -260,13 +261,13 @@ func main() {
 	}
 
 	// Print to device
-	if err := printImage(dev, finalImage, *chain, *precut, *copies); err != nil {
+	if err := printImage(dev, finalImage, *chain, *precut, *halfcut, *copies, *timeout); err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(2)
 	}
 }
 
-func printImage(dev *device.Device, img image.Image, chain, precut bool, copies int) error {
+func printImage(dev *device.Device, img image.Image, chain, precut, halfcut bool, copies int, timeout int) error {
 	bounds := img.Bounds()
 	imgWidth := bounds.Dx()
 	imgHeight := bounds.Dy()
@@ -284,7 +285,33 @@ func printImage(dev *device.Device, img image.Image, chain, precut bool, copies 
 	offset := (maxPixels / 2) - (imgHeight / 2)
 	fmt.Printf("max_pixels=%d, offset=%d\n", maxPixels, offset)
 
+	// For half-cut mode with multiple copies, we need to re-init between labels
+	// Do an extra init cycle to ensure printer is in same state (fixes half-cut not working between first two labels)
+	if halfcut && copies > 1 {
+		if err := dev.Init(); err != nil {
+			return fmt.Errorf("pre-init failed: %w", err)
+		}
+		if err := dev.GetStatus(timeout); err != nil {
+			return fmt.Errorf("pre-status failed: %w", err)
+		}
+	}
+
 	for copy := 0; copy < copies; copy++ {
+		isLastCopy := copy == copies-1
+
+		// Determine cut mode for this copy:
+		// - If halfcut mode and not last copy: use half-cut + chain mode
+		// - If last copy: use full cut (unless chain flag is set)
+		useHalfCut := halfcut && !isLastCopy
+		useChain := (halfcut && !isLastCopy) || chain
+
+		// Precut only on first copy
+		usePrecut := precut && copy == 0
+
+		if halfcut && copies > 1 {
+			fmt.Printf("Printing copy %d of %d (halfcut=%v)...\n", copy+1, copies, useHalfCut)
+		}
+
 		// Start raster mode (must be first for E550W/P750W protocol)
 		if err := dev.RasterStart(); err != nil {
 			return fmt.Errorf("raster start failed: %w", err)
@@ -313,28 +340,29 @@ func printImage(dev *device.Device, img image.Image, chain, precut bool, copies 
 		// Mode settings: auto-cut (for E550W protocol)
 		// Note: precut uses the same ESC i M command
 		if dev.HasFlag(device.FlagHasPrecut) {
-			if err := dev.SendPrecut(precut); err != nil {
+			if err := dev.SendPrecut(usePrecut); err != nil {
 				return err
 			}
-			if *debug && precut {
+			if *debug && usePrecut {
 				fmt.Println("send precut command")
 			}
 		}
 
 		// Advanced mode: chain printing control (E550W/P750W protocol)
+		// halfCut=true means perforated cut instead of full cut
 		// noChain=true means feed after last label (normal mode)
 		// noChain=false means chain printing (don't feed)
 		if dev.HasFlag(device.FlagP700Init) && !dev.HasFlag(device.FlagD460BTMagic) {
-			if err := dev.SendAdvancedMode(false, !chain, false, false); err != nil {
+			if err := dev.SendAdvancedMode(useHalfCut, !useChain, false, false); err != nil {
 				return err
 			}
 			if *debug {
-				fmt.Printf("send advanced mode (chain=%v)\n", chain)
+				fmt.Printf("send advanced mode (halfcut=%v, chain=%v)\n", useHalfCut, useChain)
 			}
 		}
 
 		// D460BT chain command
-		if dev.HasFlag(device.FlagD460BTMagic) && chain {
+		if dev.HasFlag(device.FlagD460BTMagic) && useChain {
 			if err := dev.SendD460BTChain(); err != nil {
 				return err
 			}
@@ -372,9 +400,24 @@ func printImage(dev *device.Device, img image.Image, chain, precut bool, copies 
 		}
 
 		// Finalize (cut or chain mode)
-		isLastCopy := copy == copies-1
-		if err := dev.Finalize(chain || !isLastCopy); err != nil {
+		if err := dev.Finalize(useChain); err != nil {
 			return fmt.Errorf("finalize failed: %w", err)
+		}
+
+		// For half-cut mode, wait for print completion and re-initialize for next label
+		if halfcut && !isLastCopy {
+			// Wait for print to complete (30 second timeout)
+			if err := dev.WaitForPrintComplete(30); err != nil {
+				return fmt.Errorf("failed waiting for copy %d to print: %w", copy+1, err)
+			}
+
+			// Re-initialize for next label
+			if err := dev.Init(); err != nil {
+				return fmt.Errorf("re-init failed after copy %d: %w", copy+1, err)
+			}
+			if err := dev.GetStatus(timeout); err != nil {
+				return fmt.Errorf("get status failed after copy %d: %w", copy+1, err)
+			}
 		}
 	}
 
