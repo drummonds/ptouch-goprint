@@ -13,7 +13,8 @@ import (
 	"github.com/google/gousb"
 )
 
-const version = "0.1.0-go"
+// version is set at build time via ldflags
+var version = "dev"
 
 // Command-line flags
 var (
@@ -30,6 +31,7 @@ var (
 	showInfo       = flag.Bool("info", false, "Show tape/printer info")
 	listSupported  = flag.Bool("list-supported", false, "List supported printers")
 	listUSB        = flag.Bool("list-usb", false, "List all USB devices (for debugging)")
+	showVersion    = flag.Bool("version", false, "Show version number")
 
 	// Job flags - these can be specified multiple times
 	textLines  stringSlice
@@ -76,6 +78,11 @@ func init() {
 
 func main() {
 	flag.Parse()
+
+	if *showVersion {
+		fmt.Println("ptouch-goprint version", version)
+		os.Exit(0)
+	}
 
 	if *listSupported {
 		device.ListSupported()
