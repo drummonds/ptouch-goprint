@@ -7,9 +7,9 @@ import (
 	"os"
 	"strings"
 
-	"github.com/drummonds/ptouch-goprint/internal/device"
-	"github.com/drummonds/ptouch-goprint/internal/job"
-	"github.com/drummonds/ptouch-goprint/internal/render"
+	"codeberg.org/hum3/ptouch-goprint/internal/device"
+	"codeberg.org/hum3/ptouch-goprint/internal/job"
+	"codeberg.org/hum3/ptouch-goprint/internal/render"
 	"github.com/google/gousb"
 )
 

@@ -1,4 +1,4 @@
-module github.com/drummonds/ptouch-goprint
+module codeberg.org/hum3/ptouch-goprint
 
 go 1.24.0
 

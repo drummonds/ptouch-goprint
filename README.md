@@ -189,4 +189,3 @@ if err := cmd.Run(); err != nil {
 | Documentation | https://h3-ptouch-goprint.statichost.page/ |
 | Source (Codeberg) | https://codeberg.org/hum3/ptouch-goprint |
 | Mirror (GitHub) | https://github.com/drummonds/ptouch-goprint |
-| Docs repo | https://codeberg.org/hum3/ptouch-goprint-docs |
